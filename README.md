@@ -24,6 +24,8 @@ curl http://localhost:80/projeto-korp
 
 Se a rede já existir, reutilize-a. Sua criação fica fora do Compose porque também é uma tarefa explícita do Ansible.
 
+Se a porta 3000 estiver ocupada, altere `GRAFANA_PORT` no `.env` antes de iniciar. Pelo Ansible, use `-e grafana_port=3001` para publicar o Grafana na porta 3001.
+
 Exemplo de resposta:
 
 ```json

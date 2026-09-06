@@ -54,7 +54,7 @@ services:
   grafana:
     <<: *defaults
     image: grafana/grafana:12.1.1
-    ports: ["3000:3000"]
+    ports: ["${GRAFANA_PORT:-3000}:3000"]
     environment:
       GF_SECURITY_ADMIN_USER: admin
       GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?Set GRAFANA_ADMIN_PASSWORD in .env}

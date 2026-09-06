@@ -40,6 +40,7 @@ else:
 
 password = os.environ["GRAFANA_ADMIN_PASSWORD"]
 auth = base64.b64encode(("admin:" + password).encode()).decode()
-dashboard = get("http://localhost:3000/api/dashboards/uid/projeto-korp", {"Authorization": "Basic " + auth})
+grafana_url = os.environ.get("GRAFANA_URL", "http://localhost:3000")
+dashboard = get(grafana_url + "/api/dashboards/uid/projeto-korp", {"Authorization": "Basic " + auth})
 assert len(dashboard["dashboard"]["panels"]) >= 6
 print("OK: JSON, horário UTC dinâmico, métricas privadas, scrape e dashboard provisionado")

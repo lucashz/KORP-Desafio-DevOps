@@ -31,6 +31,8 @@ localhost ansible_connection=local
 
 Quando necessário, defina `ansible_python_interpreter` com o caminho do Python do destino. Ao executar como root, omita `--ask-become-pass`.
 
+A porta do Grafana é 3000 por padrão. Se já estiver ocupada, acrescente `-e grafana_port=3001` ao comando do playbook. Para testar essa porta com `scripts/smoke.py`, exporte `GRAFANA_URL=http://localhost:3001`.
+
 ## Arquivos e acesso
 
 O deploy fica em `/opt/projeto-korp`. A senha do Grafana é gerada e preservada em `ansible/.secrets/<host>-grafana` no controlador. O `.env` do destino recebe permissão `0600`. Inventário real, `.env` e `.secrets` são ignorados pelo Git.

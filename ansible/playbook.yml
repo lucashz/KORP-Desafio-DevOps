@@ -5,6 +5,7 @@
   vars:
     project_dir: /opt/projeto-korp
     project_source: "{{ playbook_dir }}/.."
+    grafana_port: 3000
     docker_architectures:
       x86_64: amd64
       aarch64: arm64
@@ -69,7 +70,7 @@
     - name: Gravar configuração privada
       ansible.builtin.copy:
         dest: "{{ project_dir }}/.env"
-        content: "GRAFANA_ADMIN_PASSWORD={{ grafana_password }}\n"
+        content: "GRAFANA_ADMIN_PASSWORD={{ grafana_password }}\nGRAFANA_PORT={{ grafana_port }}\n"
         mode: '0600'
       no_log: true
 
@@ -119,7 +120,7 @@
 
     - name: Validar dashboard provisionado
       ansible.builtin.uri:
-        url: http://127.0.0.1:3000/api/dashboards/uid/projeto-korp
+        url: "http://127.0.0.1:{{ grafana_port }}/api/dashboards/uid/projeto-korp"
         user: admin
         password: "{{ grafana_password }}"
         force_basic_auth: true
@@ -133,5 +134,5 @@
       ansible.builtin.debug:
         msg:
           - "Resposta HTTP: {{ api_response.json }}"
-          - 'Grafana: http://localhost:3000 — usuário admin; use túnel SSH para servidor remoto.'
+          - 'Grafana: http://<IP_DO_SERVIDOR>:{{ grafana_port }} — usuário admin.'
           - 'Senha persistida no controlador em ansible/.secrets/<host>-grafana.'
