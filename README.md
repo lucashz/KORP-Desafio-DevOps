@@ -8,7 +8,7 @@ Cliente → NGINX (:80) → http-server-projeto-korp (:8080)
                           Prometheus ← Grafana
 ```
 
-Os containers usam a rede bridge `projeto-korp-network`. A API não publica portas no host. Grafana e Prometheus ficam em `127.0.0.1`, nas portas 3000 e 9090.
+Os containers usam a rede bridge `projeto-korp-network`. A API é acessada pelo NGINX na porta 80. Grafana publica a porta 3000 para acesso pela rede; Prometheus fica em `127.0.0.1:9090`.
 
 ## Executar com Docker Compose
 
@@ -44,7 +44,7 @@ Ele instala Docker, cria a rede, copia o projeto para `/opt/projeto-korp`, const
 
 ## Monitoramento
 
-Abra `http://localhost:3000` e entre como `admin` com a senha definida no `.env`. O datasource e o dashboard **Projeto Korp — Serviço HTTP** são carregados dos arquivos em `monitoring/grafana`.
+Abra `http://IP_DO_SERVIDOR:3000` (ou `http://localhost:3000` no próprio servidor) e entre como `admin` com a senha definida no `.env`. O datasource e o dashboard **Projeto Korp — Serviço HTTP** são carregados dos arquivos em `monitoring/grafana`.
 
 | Métrica | Uso |
 | --- | --- |

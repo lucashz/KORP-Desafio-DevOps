@@ -37,13 +37,15 @@ O deploy fica em `/opt/projeto-korp`. A senha do Grafana é gerada e preservada 
 
 A senha inicial do Grafana é usada na criação do banco. Alterar apenas o `.env` não troca a senha de um usuário já existente; preserve o arquivo de senha entre execuções.
 
-Grafana e Prometheus escutam somente no loopback do destino. Para acessá-los remotamente:
+Grafana publica a porta 3000 no destino. Acesse `http://IP_DO_SERVIDOR:3000` e entre como `admin`. A API fica em `http://IP_DO_SERVIDOR/projeto-korp`. O firewall da rede deve permitir o acesso à porta 3000.
+
+Prometheus escuta somente no loopback. Para acessar sua interface remotamente:
 
 ```bash
-ssh -N -L 3000:127.0.0.1:3000 -L 9090:127.0.0.1:9090 usuario@IP_DO_SERVIDOR
+ssh -N -L 9090:127.0.0.1:9090 usuario@IP_DO_SERVIDOR
 ```
 
-Abra `http://localhost:3000` no navegador e entre como `admin`. A API fica em `http://IP_DO_SERVIDOR/projeto-korp`.
+Abra `http://localhost:9090` no navegador.
 
 ## Reexecução
 
