@@ -33,7 +33,7 @@ jobs:
           docker compose exec -T nginx nginx -t
           docker compose exec -T prometheus promtool check config /etc/prometheus/prometheus.yml
           python3 scripts/smoke.py
-          test -z "$(docker compose port http-server-projeto-korp 8080 2>/dev/null || true)"
+          docker inspect "$(docker compose ps -q http-server-projeto-korp)" --format '{{json .HostConfig.PortBindings}}' | python3 -c 'import json, sys; assert not json.load(sys.stdin), "A aplicação não deve publicar portas no host"'
       - name: Diagnostics
         if: failure()
         run: docker compose logs --tail=100
