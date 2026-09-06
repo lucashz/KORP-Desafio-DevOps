@@ -1,0 +1,8 @@
+.env
+.secrets/
+.venv/
+ansible/inventory.ini
+*.retry
+coverage.out
+http-server-projeto-korp
+*.exe

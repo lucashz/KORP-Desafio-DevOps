@@ -1,0 +1,33 @@
+---
+- name: Instalar certificados e suporte SELinux para Python
+  ansible.builtin.dnf:
+    name:
+      - ca-certificates
+      - python3-libselinux
+    state: present
+
+- name: Importar chave de assinatura do Docker
+  ansible.builtin.rpm_key:
+    key: https://download.docker.com/linux/centos/gpg
+    fingerprint: '060A61C51B558A7F742B77AAC52FEB6B621E9F35'
+    state: present
+
+- name: Configurar repositório Docker CE para Rocky Linux
+  ansible.builtin.yum_repository:
+    name: docker-ce-stable
+    description: Docker CE Stable
+    baseurl: 'https://download.docker.com/linux/centos/$releasever/$basearch/stable'
+    enabled: true
+    gpgcheck: true
+    gpgkey: https://download.docker.com/linux/centos/gpg
+
+- name: Instalar Docker Engine e plugins
+  ansible.builtin.dnf:
+    name:
+      - docker-ce
+      - docker-ce-cli
+      - containerd.io
+      - docker-buildx-plugin
+      - docker-compose-plugin
+    state: present
+    update_cache: true

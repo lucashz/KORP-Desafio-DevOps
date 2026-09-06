@@ -1,0 +1,137 @@
+---
+- name: Provisionar Projeto Korp
+  hosts: korp
+  become: true
+  vars:
+    project_dir: /opt/projeto-korp
+    project_source: "{{ playbook_dir }}/.."
+    docker_architectures:
+      x86_64: amd64
+      aarch64: arm64
+  pre_tasks:
+    - name: Validar sistema operacional suportado
+      ansible.builtin.assert:
+        that:
+          - >-
+            (ansible_facts.distribution == 'Ubuntu' and ansible_facts.distribution_version == '24.04') or
+            (ansible_facts.distribution == 'Rocky' and ansible_facts.distribution_major_version in ['9', '10'])
+          - ansible_facts.architecture in docker_architectures
+        fail_msg: Este playbook aceita Ubuntu 24.04 e Rocky Linux 9/10 em amd64 ou arm64.
+
+    - name: Consultar pacotes instalados
+      ansible.builtin.package_facts:
+        manager: auto
+
+    - name: Verificar pacotes conflitantes sem removê-los automaticamente
+      ansible.builtin.assert:
+        that:
+          - "['docker.io', 'docker-compose', 'docker-compose-v2', 'podman-docker', 'containerd', 'runc'] | intersect(ansible_facts.packages.keys() | list) | length == 0"
+        fail_msg: Resolva os pacotes conflitantes conforme a documentação do Docker antes de continuar.
+
+  tasks:
+    - name: Instalar Docker conforme a distribuição
+      ansible.builtin.include_tasks: "tasks/docker-{{ ansible_facts.distribution | lower }}.yml"
+
+    - name: Habilitar e iniciar Docker
+      ansible.builtin.systemd_service:
+        name: docker
+        enabled: true
+        state: started
+
+    - name: Criar diretório da aplicação
+      ansible.builtin.file:
+        path: "{{ project_dir }}"
+        state: directory
+        mode: '0755'
+
+    - name: Copiar arquivos necessários ao deploy
+      ansible.builtin.copy:
+        src: "{{ project_source }}/{{ item }}"
+        dest: "{{ project_dir }}/"
+        mode: preserve
+        directory_mode: '0755'
+      loop:
+        - go.mod
+        - go.sum
+        - Dockerfile
+        - .dockerignore
+        - compose.yaml
+        - cmd
+        - nginx
+        - monitoring
+      register: project_files
+
+    - name: Gerar senha persistente do Grafana no controlador
+      ansible.builtin.set_fact:
+        grafana_password: "{{ lookup('ansible.builtin.password', playbook_dir + '/.secrets/' + inventory_hostname + '-grafana', length=32, chars=['ascii_letters', 'digits']) }}"
+      no_log: true
+
+    - name: Gravar configuração privada
+      ansible.builtin.copy:
+        dest: "{{ project_dir }}/.env"
+        content: "GRAFANA_ADMIN_PASSWORD={{ grafana_password }}\n"
+        mode: '0600'
+      no_log: true
+
+    - name: Criar rede bridge
+      community.docker.docker_network:
+        name: projeto-korp-network
+        driver: bridge
+        state: present
+
+    - name: Construir imagem e iniciar serviços
+      community.docker.docker_compose_v2:
+        project_src: "{{ project_dir }}"
+        build: "{{ 'always' if project_files.changed else 'policy' }}"
+        recreate: "{{ 'always' if project_files.changed else 'auto' }}"
+        state: present
+        wait: true
+        wait_timeout: 180
+
+    - name: Validar resposta HTTP pelo NGINX
+      ansible.builtin.uri:
+        url: http://127.0.0.1:80/projeto-korp
+        return_content: true
+        status_code: 200
+      register: api_response
+      retries: 12
+      delay: 5
+      until: api_response.status | default(0) == 200
+
+    - name: Validar contrato JSON
+      ansible.builtin.assert:
+        that:
+          - api_response.json.nome == 'Projeto Korp'
+          - api_response.json.horario is match('^\d{4}-\d{2}-\d{2}T.*Z$')
+          - api_response.json | length == 2
+
+    - name: Validar coleta do Prometheus
+      ansible.builtin.uri:
+        url: 'http://127.0.0.1:9090/api/v1/query?query=up%7Bjob%3D%22http-server-projeto-korp%22%7D'
+        return_content: true
+      register: prometheus_response
+      retries: 12
+      delay: 5
+      until: >-
+        prometheus_response.status | default(0) == 200 and
+        prometheus_response.json.data.result | default([]) | length == 1 and
+        prometheus_response.json.data.result[0].value[1] == '1'
+
+    - name: Validar dashboard provisionado
+      ansible.builtin.uri:
+        url: http://127.0.0.1:3000/api/dashboards/uid/projeto-korp
+        user: admin
+        password: "{{ grafana_password }}"
+        force_basic_auth: true
+      register: dashboard_response
+      retries: 12
+      delay: 5
+      until: dashboard_response.status | default(0) == 200
+      no_log: true
+
+    - name: Exibir resposta e instruções de acesso
+      ansible.builtin.debug:
+        msg:
+          - "Resposta HTTP: {{ api_response.json }}"
+          - 'Grafana: http://localhost:3000 — usuário admin; use túnel SSH para servidor remoto.'
+          - 'Senha persistida no controlador em ansible/.secrets/<host>-grafana.'

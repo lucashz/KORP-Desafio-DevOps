@@ -1,0 +1,84 @@
+name: projeto-korp
+
+x-defaults: &defaults
+  restart: unless-stopped
+  networks: [korp]
+  logging:
+    driver: json-file
+    options:
+      max-size: 10m
+      max-file: "3"
+
+services:
+  http-server-projeto-korp:
+    <<: *defaults
+    image: http-server-projeto-korp:local
+    build: .
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    stop_grace_period: 15s
+
+  nginx:
+    <<: *defaults
+    image: nginx:1.28.0-alpine
+    ports: ["80:80"]
+    volumes:
+      - ./nginx:/etc/nginx/conf.d:ro,Z
+    depends_on:
+      http-server-projeto-korp:
+        condition: service_healthy
+    healthcheck:
+      test: [CMD-SHELL, "wget -q -O /dev/null http://127.0.0.1/healthz || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+
+  prometheus:
+    <<: *defaults
+    image: prom/prometheus:v3.5.0
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=7d
+    ports: ["127.0.0.1:9090:9090"]
+    volumes:
+      - ./monitoring/prometheus:/etc/prometheus:ro,Z
+      - prometheus-data:/prometheus
+    healthcheck:
+      test: [CMD-SHELL, "wget -q -O /dev/null http://127.0.0.1:9090/-/ready || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+
+  grafana:
+    <<: *defaults
+    image: grafana/grafana:12.1.1
+    ports: ["127.0.0.1:3000:3000"]
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?Set GRAFANA_ADMIN_PASSWORD in .env}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+    volumes:
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro,Z
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro,Z
+      - grafana-data:/var/lib/grafana
+    depends_on:
+      prometheus:
+        condition: service_healthy
+    healthcheck:
+      test: [CMD-SHELL, "wget -q -O /dev/null http://127.0.0.1:3000/api/health || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 30s
+
+networks:
+  korp:
+    name: projeto-korp-network
+    external: true
+
+volumes:
+  prometheus-data:
+  grafana-data:

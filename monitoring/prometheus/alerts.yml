@@ -1,0 +1,10 @@
+groups:
+  - name: projeto-korp
+    rules:
+      - alert: KorpServiceDown
+        expr: up{job="http-server-projeto-korp"} == 0
+        for: 30s
+        labels:
+          severity: critical
+        annotations:
+          summary: Serviço HTTP indisponível para coleta do Prometheus

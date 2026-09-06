@@ -1,0 +1,42 @@
+name: Validate
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Go checks
+        run: |
+          test -z "$(gofmt -l cmd)"
+          go vet ./...
+          go test -race -cover ./...
+      - name: Ansible syntax
+        run: |
+          python3 -m venv .venv
+          .venv/bin/pip install ansible-core==2.19.2
+          .venv/bin/ansible-galaxy collection install -r ansible/requirements.yml
+          .venv/bin/ansible-playbook -i ansible/inventory.example.ini ansible/playbook.yml --syntax-check
+      - name: Start stack
+        run: |
+          echo "GRAFANA_ADMIN_PASSWORD=$(openssl rand -hex 24)" >> "$GITHUB_ENV"
+          docker network create --driver bridge projeto-korp-network
+      - name: Integration checks
+        run: |
+          docker compose config --quiet
+          docker compose up --build -d --wait --wait-timeout 180
+          docker compose exec -T nginx nginx -t
+          docker compose exec -T prometheus promtool check config /etc/prometheus/prometheus.yml
+          python3 scripts/smoke.py
+          test -z "$(docker compose port http-server-projeto-korp 8080 2>/dev/null || true)"
+      - name: Diagnostics
+        if: failure()
+        run: docker compose logs --tail=100
+      - name: Cleanup
+        if: always()
+        run: docker compose down -v
