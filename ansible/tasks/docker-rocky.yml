@@ -3,7 +3,9 @@
   ansible.builtin.dnf:
     name:
       - ca-certificates
+      - gnupg2
       - python3-libselinux
+      - python3-requests
     state: present
 
 - name: Importar chave de assinatura do Docker
