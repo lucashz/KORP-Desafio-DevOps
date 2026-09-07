@@ -127,7 +127,7 @@
       register: dashboard_response
       retries: 12
       delay: 5
-      until: dashboard_response.status | default(0) == 200
+      until: dashboard_response.status | default(0) in [200, 401, 403]
       no_log: true
 
     - name: Exibir resposta e instruções de acesso
